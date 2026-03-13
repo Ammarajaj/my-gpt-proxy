@@ -1,31 +1,35 @@
 // File: /api/proxy.js
-// --- الإصدار المطور الذي يدعم النصوص والصور ---
+// --- الإصدار النهائي الذي يدعم النصوص والصور بشكل صحيح ---
 
 import http from 'http';
 
 const API_KEY = process.env.GPT_PROXY_KEY;
 
-// --- ▼▼▼▼▼ هذا هو التعديل الجوهري ▼▼▼▼▼ ---
 async function handleProxyRequest(incomingRequest) {
     let targetUrl;
-    let requestBody = { ...incomingRequest }; // نسخة من الطلب
+    let requestBody = { ...incomingRequest };
 
-    // 1. نحدد نوع الطلب (نص أم صورة)
-    if (incomingRequest.model && incomingRequest.model.startsWith('dall-e')) {
+    // --- ▼▼▼▼▼ هذا هو التصحيح النهائي للشرط ▼▼▼▼▼ ---
+    // 1. نتحقق مما إذا كان اسم النموذج يشير إلى أنه نموذج صور
+    const isImageModel = incomingRequest.model && (
+        incomingRequest.model.startsWith('dall-e') || 
+        incomingRequest.model.includes('image')
+    );
+
+    if (isImageModel) {
         // هذا طلب توليد صورة
         targetUrl = "https://api.chatanywhere.tech/v1/images/generations";
-        console.log("Routing to Image Generation API...");
+        console.log(`Routing image model '${incomingRequest.model}' to Image Generation API...`);
     } else {
         // هذا طلب محادثة نصية (الوضع الافتراضي)
         targetUrl = "https://api.chatanywhere.tech/v1/chat/completions";
-        console.log("Routing to Chat Completions API...");
+        console.log(`Routing chat model '${incomingRequest.model}' to Chat Completions API...`);
     }
-    // --- ▲▲▲▲▲ نهاية التعديل الجوهري ▲▲▲▲▲ ---
+    // --- ▲▲▲▲▲ نهاية التصحيح النهائي للشرط ▲▲▲▲▲ ---
 
     try {
         if (!API_KEY) {
-            console.error("CRITICAL: GPT_PROXY_KEY is not defined in the environment!");
-            return { status: 500, data: { error: 'Server Configuration Error: API Key is missing.' } };
+            throw new Error("CRITICAL: GPT_PROXY_KEY is not defined in the environment!");
         }
 
         const proxyResponse = await fetch(targetUrl, {
@@ -40,7 +44,7 @@ async function handleProxyRequest(incomingRequest) {
         const responseData = await proxyResponse.json();
 
         if (!proxyResponse.ok) {
-            console.error("Error from target API:", JSON.stringify(responseData));
+            console.error(`Error from target API (${targetUrl}):`, JSON.stringify(responseData));
         }
 
         return {
